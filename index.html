@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeLingo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        lingo: { green: "#58cc02", blue: "#1cb0f6", red: "#ff4b4b", yellow: "#ffc800", gray: "#e5e5e5", dark: "#4b4b4b" }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .lesson-node::after { content: ''; position: absolute; top: 100%; left: 50%; width: 4px; height: 40px; background: #e5e5e5; transform: translateX(-50%); z-index: -1; }
+        .lesson-node:last-child::after { display: none; }
+    </style>
+</head>
+<body class="bg-white text-lingo-dark font-sans antialiased" x-data="codeLingo()">
+
+    <template x-if="!user">
+        <div class="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center p-6 text-center">
+            <div class="text-lingo-green text-9xl mb-6 animate-pulse"><i class="fa-solid fa-code-commit"></i></div>
+            <h1 class="text-6xl font-black text-lingo-green mb-2 italic">CodeLingo</h1>
+            <p class="text-gray-400 font-bold mb-10 text-xl tracking-tight">Apprends à coder comme on apprend une langue.</p>
+            <input type="text" x-model="authInput" @keydown.enter="login()" placeholder="Choisis ton pseudo" class="w-full max-w-xs p-5 bg-gray-100 border-b-4 border-gray-300 rounded-2xl outline-none focus:border-lingo-blue font-bold text-center mb-4 transition-all text-xl">
+            <button @click="login()" class="w-full max-w-xs bg-lingo-green text-white p-5 rounded-2xl font-black shadow-[0_6px_0_0_#46a302] active:translate-y-1 active:shadow-none transition-all text-xl uppercase">C'est parti !</button>
+        </div>
+    </template>
+
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-lingo-gray px-4 py-2 flex justify-around md:left-0 md:top-0 md:h-full md:w-64 md:flex-col md:justify-start md:gap-4 md:pt-10 md:border-r-2 z-40" x-show="user && view !== 'lesson'" x-cloak>
+        <div class="hidden md:block px-6 mb-10 text-lingo-green font-black text-4xl italic">CodeLingo</div>
+        <button @click="view = 'learn'" :class="view === 'learn' ? 'text-lingo-blue bg-blue-50 border-2 border-lingo-blue' : 'text-gray-500'" class="flex flex-col md:flex-row items-center gap-4 p-4 rounded-2xl font-black w-full transition-all">
+            <i class="fa-solid fa-book-open text-2xl"></i> <span class="uppercase text-sm tracking-widest">Apprendre</span>
+        </button>
+        <button @click="view = 'profile'" :class="view === 'profile' ? 'text-lingo-blue bg-blue-50 border-2 border-lingo-blue' : 'text-gray-500'" class="flex flex-col md:flex-row items-center gap-4 p-4 rounded-2xl font-black w-full transition-all">
+            <i class="fa-solid fa-id-badge text-2xl"></i> <span class="uppercase text-sm tracking-widest">Mon Profil</span>
+        </button>
+    </nav>
+
+    <main class="md:ml-64 p-4 min-h-screen" x-show="user" :class="view === 'lesson' ? 'md:ml-0' : ''" x-cloak>
+        
+        <div class="max-w-4xl mx-auto flex justify-end gap-6 mb-8 py-2" x-show="view !== 'lesson'">
+            <div class="flex items-center gap-2 text-orange-500 font-black px-4 py-2 bg-orange-50 rounded-2xl border-2 border-orange-100 shadow-sm"><i class="fa-solid fa-fire"></i> <span x-text="user.streak"></span></div>
+            <div class="flex items-center gap-2 text-lingo-blue font-black px-4 py-2 bg-blue-50 rounded-2xl border-2 border-blue-100 shadow-sm"><i class="fa-solid fa-gem"></i> <span x-text="user.xp"></span></div>
+        </div>
+
+        <template x-if="view === 'learn'">
+            <div class="max-w-2xl mx-auto text-center pb-40">
+                <div class="sticky top-0 bg-white/90 backdrop-blur-md z-30 py-6 mb-10 flex justify-center gap-3 overflow-x-auto no-scrollbar">
+                    <template x-for="lang in Object.keys(masterDB)" :key="lang">
+                        <button @click="selectedLang = lang" 
+                            class="px-8 py-3 rounded-2xl font-black border-2 transition-all uppercase text-sm whitespace-nowrap"
+                            :class="selectedLang === lang ? 'bg-lingo-blue text-white border-lingo-blue shadow-[0_4px_0_0_#1899d6]' : 'bg-white border-gray-200 text-gray-400'"
+                            x-text="lang"></button>
+                    </template>
+                </div>
+
+                <div class="space-y-24">
+                    <template x-for="(unit, uIdx) in curriculum[selectedLang]" :key="uIdx">
+                        <div class="flex flex-col items-center">
+                            <div class="bg-lingo-green text-white p-8 rounded-[2rem] mb-16 shadow-[0_10px_0_0_#46a302] w-full max-w-lg text-left relative overflow-hidden">
+                                <div class="relative z-10">
+                                    <p class="text-xs font-black opacity-80 uppercase mb-1 tracking-[0.2em]">Module <span x-text="uIdx + 1"></span></p>
+                                    <h3 class="text-3xl font-black" x-text="unit.title"></h3>
+                                </div>
+                                <i class="fa-solid fa-terminal absolute -right-6 -bottom-6 text-9xl opacity-10 rotate-12"></i>
+                            </div>
+                            
+                            <div class="flex flex-col gap-12 items-center w-full">
+                                <template x-for="(lesson, lIdx) in unit.lessons" :key="lesson.id">
+                                    <div class="lesson-node relative" :style="'margin-left:' + (Math.sin(lIdx * 1.5) * 80) + 'px'">
+                                        <button @click="startLesson(lesson)" 
+                                            class="w-24 h-24 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95 shadow-b-bold border-8 border-white relative group"
+                                            :class="user.completed.includes(lesson.id) ? 'bg-lingo-yellow' : 'bg-lingo-green'">
+                                            <i class="fa-solid text-white text-4xl" :class="user.completed.includes(lesson.id) ? 'fa-check' : 'fa-play'"></i>
+                                        </button>
+                                        <div class="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap font-black text-gray-400 uppercase text-[10px] tracking-tighter" x-text="'Niveau ' + (lIdx + 1)"></div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <template x-if="view === 'profile'">
+            <div class="max-w-2xl mx-auto py-10 px-4">
+                <div class="bg-white border-2 border-gray-200 rounded-[3rem] p-8 mb-8 shadow-sm relative">
+                    <div class="flex items-center gap-8 mb-8">
+                        <div class="w-32 h-32 rounded-full bg-gradient-to-tr from-lingo-green to-lingo-blue flex items-center justify-center text-6xl text-white border-4 border-gray-100 shadow-inner">
+                            <i class="fa-solid fa-user-astronaut"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h2 class="text-5xl font-black tracking-tighter text-gray-800" x-text="user.name"></h2>
+                            <p class="text-gray-400 font-bold uppercase tracking-widest text-sm mt-1">Niveau <span x-text="Math.floor(user.xp / 100) + 1"></span> • Apprenti Titan</p>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 border-t-2 border-gray-100 pt-8">
+                        <div class="flex items-center gap-4 p-4 bg-orange-50 rounded-3xl border-2 border-orange-100">
+                            <i class="fa-solid fa-fire text-3xl text-orange-500"></i>
+                            <div>
+                                <p class="text-2xl font-black text-orange-600" x-text="user.streak"></p>
+                                <p class="text-[10px] font-black text-orange-400 uppercase">Série Actuelle</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4 p-4 bg-blue-50 rounded-3xl border-2 border-blue-100">
+                            <i class="fa-solid fa-bolt text-3xl text-lingo-blue"></i>
+                            <div>
+                                <p class="text-2xl font-black text-lingo-blue" x-text="user.xp"></p>
+                                <p class="text-[10px] font-black text-blue-400 uppercase">Total XP</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h4 class="text-2xl font-black mb-6 px-4">Succès Débloqués</h4>
+                <div class="grid grid-cols-1 gap-4">
+                    <div class="bg-white border-2 border-gray-100 p-6 rounded-3xl flex items-center gap-6" :class="user.completed.length > 0 ? 'grayscale-0' : 'grayscale opacity-50'">
+                        <div class="w-16 h-16 bg-yellow-100 rounded-2xl flex items-center justify-center text-3xl text-yellow-500 shadow-sm"><i class="fa-solid fa-trophy"></i></div>
+                        <div>
+                            <p class="font-black text-lg">Premier Pas</p>
+                            <p class="text-gray-400 text-sm font-bold italic">Terminer une leçon sans faute.</p>
+                        </div>
+                    </div>
+                    <div class="bg-white border-2 border-gray-100 p-6 rounded-3xl flex items-center gap-6" :class="user.xp >= 500 ? 'grayscale-0' : 'grayscale opacity-50'">
+                        <div class="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center text-3xl text-lingo-blue shadow-sm"><i class="fa-solid fa-brain"></i></div>
+                        <div>
+                            <p class="font-black text-lg">Génie en Herbe</p>
+                            <p class="text-gray-400 text-sm font-bold italic">Atteindre 500 points d'XP.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <button @click="logout()" class="w-full mt-12 py-5 text-gray-300 font-black hover:text-red-400 transition-all uppercase tracking-widest text-xs">Changer de compte / Réinitialiser</button>
+            </div>
+        </template>
+
+        <template x-if="view === 'lesson'">
+            <div class="fixed inset-0 bg-white z-50 flex flex-col">
+                <div class="p-6 max-w-5xl mx-auto w-full flex items-center gap-6">
+                    <button @click="view = 'learn'" class="text-gray-300 text-4xl hover:text-gray-500 transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                    <div class="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden shadow-inner">
+                        <div class="h-full bg-lingo-green transition-all duration-1000 ease-out" :style="'width:' + progress + '%'"></div>
+                    </div>
+                </div>
+
+                <div class="flex-1 flex flex-col items-center justify-center p-6 max-w-3xl mx-auto w-full">
+                    <template x-if="isCorrectionMode">
+                        <div class="bg-lingo-red text-white px-6 py-1 rounded-full font-black text-xs uppercase mb-8 shadow-sm animate-bounce">Pratique des erreurs</div>
+                    </template>
+                    
+                    <h2 class="text-4xl font-black mb-16 text-center text-gray-800 leading-tight" x-text="activeEx.question"></h2>
+
+                    <template x-if="activeEx.type === 'qcm'">
+                        <div class="grid gap-4 w-full">
+                            <template x-for="(opt, idx) in activeEx.options" :key="idx">
+                                <button @click="selection = idx" 
+                                    class="p-6 text-left border-2 rounded-[2.5rem] font-bold transition-all shadow-b-bold text-xl flex items-center gap-6"
+                                    :class="selection === idx ? 'border-lingo-blue bg-blue-50 text-lingo-blue' : 'border-gray-200 hover:bg-gray-50'">
+                                    <div class="w-10 h-10 rounded-xl border-2 flex items-center justify-center text-sm" :class="selection === idx ? 'border-lingo-blue bg-white' : 'border-gray-200'" x-text="idx+1"></div>
+                                    <span x-text="opt"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </template>
+
+                    <template x-if="activeEx.type === 'input'">
+                        <div class="w-full bg-gray-50 p-16 rounded-[4rem] border-4 border-dashed border-gray-200 text-center shadow-inner">
+                            <div class="text-3xl font-mono flex flex-wrap justify-center items-center gap-4 text-gray-400">
+                                <span x-text="activeEx.before"></span>
+                                <input x-model="userInput" @keydown.enter="check()" autofocus class="bg-white border-b-8 border-lingo-blue outline-none text-lingo-blue px-6 py-2 w-72 text-center rounded-t-3xl shadow-xl font-black" placeholder="...">
+                                <span x-text="activeEx.after"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <div class="p-10 border-t-4 transition-all duration-300" :class="feedback === 'win' ? 'bg-green-100 border-green-200' : (feedback === 'lose' ? 'bg-red-100 border-red-200' : 'bg-white border-gray-100')">
+                    <div class="max-w-3xl mx-auto flex items-center justify-between">
+                        <div class="max-w-[70%]">
+                            <template x-if="feedback === 'win'">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-lingo-green text-2xl shadow-sm"><i class="fa-solid fa-check"></i></div>
+                                    <div>
+                                        <h4 class="text-lingo-green text-3xl font-black uppercase tracking-tighter">Bien joué !</h4>
+                                        <p class="text-green-700 font-bold text-sm" x-text="activeEx.explain"></p>
+                                    </div>
+                                </div>
+                            </template>
+                            <template x-if="feedback === 'lose'">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-lingo-red text-2xl shadow-sm"><i class="fa-solid fa-xmark"></i></div>
+                                    <div>
+                                        <h4 class="text-lingo-red text-xl font-black uppercase">Réponse correcte :</h4>
+                                        <p class="text-red-700 font-bold text-xl mb-1" x-text="activeEx.type === 'qcm' ? activeEx.options[activeEx.answer] : activeEx.answer"></p>
+                                        <p class="text-red-600/70 text-xs italic font-bold" x-text="activeEx.explain"></p>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                        <button @click="feedback ? nextStep() : check()" 
+                            class="px-16 py-5 rounded-3xl font-black text-white shadow-lg active:translate-y-1 transition-all uppercase tracking-widest text-xl"
+                            :class="feedback ? (feedback === 'win' ? 'bg-lingo-green' : 'bg-lingo-red') : (userInput.length > 0 || selection !== null ? 'bg-lingo-green' : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none')">
+                            <span x-text="feedback ? 'Continuer' : 'Vérifier'"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </main>
+
+    <script>
+        function codeLingo() {
+            return {
+                user: JSON.parse(localStorage.getItem('lingo_ultra_v16')),
+                authInput: "", view: 'learn', selectedLang: 'HTML',
+                activeLesson: null, activeEx: null, exIndex: 0, selection: null, userInput: "", feedback: null, progress: 0,
+                mistakes: [], isCorrectionMode: false, curriculum: {},
+
+                masterDB: {
+                    HTML: [
+                        { question: "Balise pour le plus gros titre ?", options: ["<h6>", "<h1>", "<title>"], answer: 1, type: "qcm", explain: "<h1> est le titre de niveau 1, le plus important pour la structure." },
+                        { question: "Fermer cette balise image", before: "<img src='logo.png'", after: ">", answer: "/", type: "input", explain: "En HTML, les balises auto-fermantes utilisent un slash final." },
+                        { question: "Lien externe cliquable ?", options: ["<link>", "<a>", "<nav>"], answer: 1, type: "qcm", explain: "<a> signifie 'Anchor', c'est la base de tout lien hypertexte." },
+                        { question: "Attribut pour l'URL d'un lien ?", before: "<a ", after: "='google.com'></a>", answer: "href", type: "input", explain: "href = Hypertext Reference." },
+                        { question: "Saut de ligne simple ?", options: ["<br>", "<hr>", "<break>"], answer: 0, type: "qcm", explain: "<br> crée un retour à la ligne sans changer de paragraphe." },
+                        { question: "Balise pour une liste à puces ?", before: "<", after: "><li>A</li></ul>", answer: "ul", type: "input", explain: "ul = Unordered List." },
+                        { question: "Mettre un texte en gras ?", options: ["<bold>", "<strong>", "<text-weight>"], answer: 1, type: "qcm", explain: "<strong> donne une importance sémantique forte." },
+                        { question: "Balise pour le corps du site ?", before: "<", after: ">Contenu</body>", answer: "body", type: "input", explain: "Tout le contenu visible va dans le <body>." }
+                    ],
+                    Python: [
+                        { question: "Afficher 'Hello'", before: "print", after: "('Hello')", answer: "(", type: "input", explain: "Les fonctions en Python nécessitent des parenthèses." },
+                        { question: "Symbole de commentaire ?", options: ["//", "/*", "#"], answer: 2, type: "qcm", explain: "Le # est utilisé pour ignorer une ligne de code." },
+                        { question: "Type d'un nombre décimal ?", options: ["int", "float", "string"], answer: 1, type: "qcm", explain: "Un 'float' est un nombre à virgule flottante." },
+                        { question: "Définir une fonction", before: "", after: " ma_fonction():", answer: "def", type: "input", explain: "def est le mot-clé pour 'define'." },
+                        { question: "Boucle de répétition ?", options: ["loop", "repeat", "for"], answer: 2, type: "qcm", explain: "La boucle 'for' permet d'itérer sur une séquence." },
+                        { question: "Tester une égalité ?", before: "if x ", after: " 10:", answer: "==", type: "input", explain: "== vérifie si deux valeurs sont identiques." }
+                    ],
+                    JS: [
+                        { question: "Déclarer une constante ?", options: ["var", "let", "const"], answer: 2, type: "qcm", explain: "const empêche la réassignation de la variable." },
+                        { question: "Afficher dans la console ?", before: "console.", after: "('Test')", answer: "log", type: "input", explain: "console.log() est l'outil n°1 du debug." },
+                        { question: "Égalité stricte (type + valeur) ?", options: ["==", "===", "="], answer: 1, type: "qcm", explain: "Le triple égal vérifie aussi le type de donnée." }
+                    ],
+                    Go: [
+                        { question: "Package d'entrée ?", before: "package ", after: "", answer: "main", type: "input", explain: "Le package main est requis pour lancer l'application." },
+                        { question: "Déclaration courte ?", options: ["=", "::", ":="], answer: 2, type: "qcm", explain: ":= déclare et assigne en une seule étape." }
+                    ]
+                },
+
+                init() { this.generateCurriculum(); },
+
+                generateCurriculum() {
+                    Object.keys(this.masterDB).forEach(lang => {
+                        this.curriculum[lang] = [];
+                        let pool = this.masterDB[lang];
+                        for(let u = 0; u < 10; u++) {
+                            let unit = { title: `Module ${lang} - Expert ${u+1}`, lessons: [] };
+                            for(let l = 0; l < 8; l++) {
+                                let exercises = [];
+                                for(let e = 0; e < 3; e++) {
+                                    exercises.push(JSON.parse(JSON.stringify(pool[(u + l + e) % pool.length])));
+                                }
+                                unit.lessons.push({ id: `${lang}_u${u}_l${l}`, exercises: exercises });
+                            }
+                            this.curriculum[lang].push(unit);
+                        }
+                    });
+                },
+
+                login() { if(this.authInput.length > 1) { this.user = { name: this.authInput, xp: 0, streak: 1, completed: [] }; this.save(); } },
+                logout() { if(confirm("Effacer ta progression ?")) { this.user = null; localStorage.removeItem('lingo_ultra_v16'); } },
+                save() { localStorage.setItem('lingo_ultra_v16', JSON.stringify(this.user)); },
+
+                startLesson(lesson) {
+                    this.activeLesson = JSON.parse(JSON.stringify(lesson));
+                    this.exIndex = 0; this.mistakes = []; this.isCorrectionMode = false;
+                    this.view = 'lesson'; this.loadEx();
+                },
+
+                loadEx() {
+                    const pool = this.isCorrectionMode ? this.mistakes : this.activeLesson.exercises;
+                    this.activeEx = pool[this.exIndex];
+                    this.selection = null; this.userInput = ""; this.feedback = null;
+                    this.updateProgress();
+                },
+
+                updateProgress() {
+                    let total = this.activeLesson.exercises.length + this.mistakes.length;
+                    let current = this.isCorrectionMode ? this.activeLesson.exercises.length + this.exIndex : this.exIndex;
+                    this.progress = (current / total) * 100;
+                },
+
+                check() {
+                    if (this.feedback) return;
+                    let ok = false;
+                    if (this.activeEx.type === 'qcm') ok = (this.selection === this.activeEx.answer);
+                    if (this.activeEx.type === 'input') ok = (this.userInput.trim().toLowerCase() === this.activeEx.answer.trim().toLowerCase());
+                    
+                    this.feedback = ok ? 'win' : 'lose';
+                    if (!ok && !this.isCorrectionMode) this.mistakes.push(JSON.parse(JSON.stringify(this.activeEx)));
+                    if (ok) confetti({ particleCount: 150, spread: 80, origin: { y: 0.8 }, colors: ['#58cc02', '#1cb0f6'] });
+                },
+
+                nextStep() {
+                    const currentPool = this.isCorrectionMode ? this.mistakes : this.activeLesson.exercises;
+                    if (this.exIndex < currentPool.length - 1) {
+                        this.exIndex++; this.loadEx();
+                    } else if (!this.isCorrectionMode && this.mistakes.length > 0) {
+                        this.isCorrectionMode = true; this.exIndex = 0; this.loadEx();
+                    } else {
+                        if (!this.user.completed.includes(this.activeLesson.id)) {
+                            this.user.completed.push(this.activeLesson.id);
+                            this.user.xp += 40;
+                        }
+                        this.save(); this.view = 'learn';
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
